@@ -1,10 +1,12 @@
 import os
-import pytz
 import sys
-from datetime import datetime
+import secrets
+import time
 from flask import Flask, jsonify, request
-from twikit import Client, Tweet, User
+from twikit import Client
 from twikit.utils import Endpoint
+from mastodon_twitter_shim.utils import _tweet_to_status
+
 
 def env_or_bust(env: str):
     if env not in os.environ:
@@ -12,11 +14,14 @@ def env_or_bust(env: str):
         sys.exit(1)
     return os.environ[env]
 
-
+HOST = env_or_bust('HOST')
+SCHEME = env_or_bust('SCHEME')
+HOST_URL = f"{SCHEME}://{HOST}"
 TWITTER_USERNAME = env_or_bust('TWITTER_USERNAME')
 TWITTER_EMAIL = env_or_bust('TWITTER_EMAIL')
 TWITTER_PASSWORD = env_or_bust('TWITTER_PASSWORD')
 SAVED_CREDENTIALS_PATH = env_or_bust('SAVED_CREDENTIALS_PATH')
+PREDEFINED_TOKEN = env_or_bust('PREDEFINED_TOKEN')
 
 
 client = Client('en-US')
@@ -36,128 +41,31 @@ else:
 app = Flask(__name__)
 
 
-# timestamp looks like "Sat Mar 16 23:00:07 +0000 2024"
-def _parse_twitter_timestamp(timestamp: str):
-    date_object = datetime.strptime(timestamp, '%a %b %d %H:%M:%S %z %Y')
-    date_object = date_object.astimezone(pytz.utc)
-    return date_object.strftime("%Y-%m-%dT%H:%M:%S.000Z")
-
-
-def _twitter_media_to_media_attachment(media: dict) -> dict:
-    if media.get('type', '') == 'photo':
-        original_width = media.get('original_info', {}).get('height', 0)
-        original_height = media.get('original_info', {}).get('width', 0)
-        return {
-            'id': media.get('id_str', ''),
-            'type': 'image',
-            'url': media.get('media_url_https', ''),
-            'preview_url': media.get('media_url_https', ''), # TODO
-            'remote_url': media.get('media_url_https', ''),
-            'meta': {
-                'original': {
-                    'width': original_width,
-                    'height': original_height,
-                    'size': f"{original_width}x{original_height}",
-                    'aspect': original_width / original_height
-                },
-                # TODO: "small": {}
-            },
-            'description': '', # TODO
-            'blurhash': '0'
-        }
-    # TODO: handle video
-    return None
-
-def _tweet_to_status(tweet: Tweet) -> dict:
-    if isinstance(tweet.user, dict):
-        user_dict = tweet.user
-        user_id = user_dict.get('rest_id', '0')
-        created_at = user_dict.get('legacy', {}).get('created_at', '')
-        screen_name = user_dict.get('legacy', {}).get('screen_name', '')
-        display_name = user_dict.get('legacy', {}).get('name', '')
-        avatar = user_dict.get('legacy', {}).get('profile_image_url_https', '')
-        header = user_dict.get('legacy', {}).get('profile_banner_url', '')
-    else:
-        user = tweet.user  # type: User
-        user_id = user.id
-        created_at = user.created_at
-        screen_name = user.screen_name
-        display_name = user.name
-        avatar = user.profile_image_url
-        header = user.profile_banner_url if user.profile_banner_url else ''
-    return {
-        'id': tweet.id,
-        'uri': f'http://localhost:5000/users/{screen_name}/statuses/{tweet.id}', # TODO
-        'created_at': _parse_twitter_timestamp(tweet.created_at),
-        'account': {
-            'id': user_id, # TODO
-            'username': screen_name,
-            'acct': screen_name,
-            'url': f'http://localhost:5000/@{screen_name}', # TODO
-            'display_name': display_name,
-            'note': '',
-            'avatar': avatar,
-            'avatar_static': avatar,
-            'header': header,
-            'header_static': header,
-            'locked': False, # TODO
-            'fields': [],
-            'emojis': [],
-            'bot': False,
-            'group': False,
-            'discoverable': False,
-            'created_at': _parse_twitter_timestamp(created_at),
-            'last_status_at': '2023-02-01T00:00:00.000Z', # TODO
-            'status_count': 0, # TODO
-            'followers_count': 0, # TODO
-            'following_count': 0, # TODO
-        },
-        'content': tweet.full_text,
-        'visibility': 'public', # TODO
-        'sensitive': tweet.possibly_sensitive,
-        'spoiler_text': '',
-        'media_attachments': list(filter(lambda _: _, map(_twitter_media_to_media_attachment, tweet.media if tweet.media else []))),
-        'mentions': [], # TODO
-        'tags': [], # TODO
-        'emojis': [], # TODO
-        'reblogs_count': tweet.retweet_count,
-        'favourites_count': tweet.favorite_count,
-        'replies_count': tweet.reply_count,
-        'url': f'http://localhost:5000/@{screen_name}/statuses/{tweet.id}',
-        'in_reply_to_id': None, # TODO
-        'in_reply_to_account_id': None, # TODO
-        'reblog': _tweet_to_status(tweet.retweeted_tweet) if tweet.retweeted_tweet else None,
-        'poll': None,
-        'card': None,
-        'language': tweet.lang,
-        'text': tweet.full_text,
-        'edited_at': None
-    }
-
 
 @app.route('/api/v1/timelines/home')
 def _home_timeline():
+    # TODO: ACTUALLY CHECK TOKEN
+    # TODO: can cache response for a while
     tweets = client.get_timeline(timeline_endpoint=Endpoint.HOME_LATEST_TIMELINE)
     statues = []
     for t in tweets:
-        statues.append(_tweet_to_status(t))
+        statues.append(_tweet_to_status(t, HOST_URL))
     return jsonify(statues)
 
 
 @app.route('/api/v1/instance')
 def _instance():
     return jsonify({
-        'uri': 'http://localhost:5000',  # TODO
-        'title': 'mastodon-api-shim-for-twitter-unofficial-api', # TODO
-        'short_description': 'mastodon-api-shim-for-twitter-unofficial-api', # TODO
-        'description': 'mastodon-api-shim-for-twitter-unofficial-api', # TODO
-        'email': 'admin@localhost:5000', # TODO
-        'version': '4.2.7', # TODO
-        'urls': {
-            'streaming_api': 'wss://localhost:5000', # TODO
-        },
+        'uri': HOST_URL,
+        'title': 'Mastodon Twitter shim',
+        'short_description': 'Use Twitter with Mastodon clients',
+        'description': 'Use Twitter with Mastodon clients',
+        'email': f'admin@{HOST}',
+        # TODO: should stick or update with Mastodon version?
+        'version': '4.2.7',
         'stats': {
-            'user_count': 0, # TODO
+            # TODO: change if multitenant
+            'user_count': 1,
             'status_count': 0,
             'domain_count': 0,
         },
@@ -166,7 +74,12 @@ def _instance():
         'registrations': True,
         'approval_required': False,
         'invites_enabled': False,
-        'configuration': {}, # TODO
+        'configuration': {
+            "statuses": {
+                "max_characters": 280,
+                "max_media_attachments": 4,
+            },
+        },
         'contact_account': None,
         'rules': []
     })
@@ -177,20 +90,20 @@ def _create_app():
     client_name = request.json['client_name']
     redirect_uris = request.json['redirect_uris']
     website = request.json.get('website', None)
-    print(redirect_uris)
+    # TODO: better to persist apps?
     return jsonify({
-        'id': '0', # TODO
+        'id': client_name,
         'name': client_name,
         'website': website,
         "redirect_uri": redirect_uris,
-        'client_id': '', # TODO
-        'client_secret': '', # TODO
-        "vapid_key": "" # TODO
+        'client_id': client_name,
+        'client_secret': secrets.token_hex(10)
     })
 
 
 @app.route('/oauth/authorize')
 def _oauth_authorize():
+    # TODO: ACTUALLY AUTHORIZE FIRST
     return f"""
 <a href='{request.args['redirect_uri']}?code=0'>Just authorize</a>
 """
@@ -199,10 +112,11 @@ def _oauth_authorize():
 @app.route('/oauth/token', methods=['POST'])
 def _oauth_get_token():
     return jsonify({
-        'access_token': '0', # TODO
+        'access_token': PREDEFINED_TOKEN,
         "token_type": "Bearer",
-        "scope": "read write follow push", # TODO
-        "created_at": 1573979017 # TODO
+        # TODO: could limit scope
+        "scope": "read write follow push",
+        "created_at": int(time.time())
     })
 
 
