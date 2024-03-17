@@ -1,5 +1,6 @@
 import os
 import pytz
+import sys
 from datetime import datetime
 from flask import Flask, jsonify, request
 from twikit import Client, Tweet, User
@@ -7,7 +8,8 @@ from twikit.utils import Endpoint
 
 def env_or_bust(env: str):
     if env not in os.environ:
-        raise ValueError(f"Environment variable {env} is required")
+        print(f"Environment variable {env} is required")
+        sys.exit(1)
     return os.environ[env]
 
 
@@ -19,6 +21,7 @@ SAVED_CREDENTIALS_PATH = env_or_bust('SAVED_CREDENTIALS_PATH')
 
 client = Client('en-US')
 if os.path.exists(SAVED_CREDENTIALS_PATH):
+    print(f"Loading cookies from {SAVED_CREDENTIALS_PATH}")
     client.load_cookies(SAVED_CREDENTIALS_PATH)
 else:
     client.login(
@@ -27,6 +30,7 @@ else:
         password=TWITTER_PASSWORD
     )
     client.save_cookies(SAVED_CREDENTIALS_PATH)
+    print(f"Saved cookies to {SAVED_CREDENTIALS_PATH}")
 
 
 app = Flask(__name__)
