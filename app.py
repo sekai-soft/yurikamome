@@ -2,10 +2,14 @@ import os
 import sys
 import secrets
 import time
+from dotenv import load_dotenv
 from flask import Flask, jsonify, request
 from twikit import Client
 from twikit.utils import Endpoint
 from mastodon_twitter_shim.utils import _tweet_to_status
+
+
+load_dotenv()
 
 
 def env_or_bust(env: str):
@@ -14,6 +18,7 @@ def env_or_bust(env: str):
         sys.exit(1)
     return os.environ[env]
 
+
 HOST = env_or_bust('HOST')
 SCHEME = env_or_bust('SCHEME')
 HOST_URL = f"{SCHEME}://{HOST}"
@@ -21,7 +26,7 @@ TWITTER_USERNAME = env_or_bust('TWITTER_USERNAME')
 TWITTER_EMAIL = env_or_bust('TWITTER_EMAIL')
 TWITTER_PASSWORD = env_or_bust('TWITTER_PASSWORD')
 SAVED_CREDENTIALS_PATH = env_or_bust('SAVED_CREDENTIALS_PATH')
-PREDEFINED_TOKEN = env_or_bust('PREDEFINED_TOKEN')
+SHARED_SECRET = env_or_bust('SHARED_SECRET')
 
 
 client = Client('en-US')
@@ -39,7 +44,6 @@ else:
 
 
 app = Flask(__name__)
-
 
 
 @app.route('/api/v1/timelines/home')
@@ -112,7 +116,7 @@ def _oauth_authorize():
 @app.route('/oauth/token', methods=['POST'])
 def _oauth_get_token():
     return jsonify({
-        'access_token': PREDEFINED_TOKEN,
+        'access_token': SHARED_SECRET,
         "token_type": "Bearer",
         # TODO: could limit scope
         "scope": "read write follow push",
