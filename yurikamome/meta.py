@@ -1,8 +1,14 @@
 import secrets
 import time
+import uuid
 from urllib.parse import unquote
 from flask import jsonify, request, render_template, Blueprint
-from .helpers import env_or_bust, get_host_url_or_bust
+from .helpers import env_or_bust, get_host_url_or_bust, get_db
+
+CREATE_APP_SQL = """
+INSERT INTO apps (id, name, website, redirect_uris, client_id, client_secret, vapid_key, scopes)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+"""
 
 HOST = env_or_bust('HOST')
 HOST_URL = get_host_url_or_bust()
@@ -55,18 +61,37 @@ def create_app():
         return jsonify({
             'error': 'redirect_uris is required'
         }), 422
-    redirect_uris = request.json['redirect_uris']
+    redirect_uris = unquote(request.json['redirect_uris'])
 
-    scopes = request.json.get('scopes', 'read').split(' ')
+    scopes = request.json.get('scopes', 'read')
     website = request.json.get('website', None)
 
+    app_id = str(uuid.uuid4())
+    client_id = str(uuid.uuid4())
+    client_secret = secrets.token_hex(10)
+    vapid_key = secrets.token_hex(10)
+
+    db = get_db()
+    db.execute(CREATE_APP_SQL, (
+        app_id,
+        client_name,
+        website,
+        redirect_uris,
+        client_id,
+        client_secret,
+        vapid_key,
+        scopes
+    ))
+    db.commit()
+
     return jsonify({
-        'id': client_name,
+        'id': app_id,
         'name': client_name,
         'website': website,
         "redirect_uri": redirect_uris,
-        'client_id': client_name,
-        'client_secret': secrets.token_hex(10)
+        'client_id': client_id,
+        'client_secret': client_secret,
+        'vapid_key' : vapid_key,
     })
 
 
