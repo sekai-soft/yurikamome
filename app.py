@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from flask import Flask, jsonify, request
 from twikit import Client
 from twikit.utils import Endpoint
-from mastodon_twitter_shim.utils import _tweet_to_status
+from yurikamome.utils import _tweet_to_status
 
 
 load_dotenv()
@@ -61,7 +61,7 @@ def _home_timeline():
 def _instance():
     return jsonify({
         'uri': HOST_URL,
-        'title': 'Mastodon Twitter shim',
+        'title': 'Yurikamome',
         'short_description': 'Use Twitter with Mastodon clients',
         'description': 'Use Twitter with Mastodon clients',
         'email': f'admin@{HOST}',
