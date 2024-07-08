@@ -2,8 +2,9 @@ import secrets
 import time
 import uuid
 from urllib.parse import unquote
-from flask import jsonify, request, render_template, Blueprint
-from .helpers import env_or_bust, get_host_url_or_bust, get_db
+from flask import jsonify, request, render_template, Blueprint, redirect
+from twikit import Client
+from .helpers import env_or_bust, get_host_url_or_bust, get_db, update_last_used_at, query_db, catches_exceptions
 
 CREATE_APP_SQL = """
 INSERT INTO apps (id, name, website, redirect_uris, client_id, client_secret, vapid_key, scopes)
@@ -96,8 +97,67 @@ def create_app():
 
 
 @meta_blueprint.route('/oauth/authorize')
+@catches_exceptions
 def oauth_authorize():
+    if 'response_type' not in request.args or request.args['response_type'] != 'code':
+        return jsonify({
+            'error': "response_type must be 'code'"
+        }), 400
+
+    if 'client_id' not in request.args:
+        return jsonify({
+            'error': 'client_id is required'
+        }), 400
+    client_id = request.args['client_id']
+
+    app_row = query_db('SELECT * FROM apps WHERE client_id = ?', (client_id,), one=True)
+    if not app_row:
+        return jsonify({
+            'error': 'client_id is not found'
+        }), 400
+
+    if 'redirect_uri' not in request.args:
+        return jsonify({
+            'error': 'redirect_uri is required'
+        }), 400
+    redirect_uri = request.args['redirect_uri']
+    app_redirect_uris = app_row['redirect_uris']
+    if redirect_uri not in app_redirect_uris:
+        return jsonify({
+            'error': 'redirect_uri is not included in the declared list when app is created'
+        }), 400
+
+    scope_set = set(request.args.get('scope', 'read').split(' '))
+    app_scope_set = set(app_row['scopes'].split(' '))
+    if not scope_set.issubset(app_scope_set):
+        return jsonify({
+            'error': 'scope is not a subset of the declared set when app is created'
+        }), 400
+
+    force_login = bool(request.args.get('force_login', 'false'))
+    lang = request.args.get('lang', 'en')
+
+    update_last_used_at(client_id)
     return render_template('oauth_authorize.html')
+
+
+@meta_blueprint.route('/twitter_auth', methods=['POST'])
+def twitter_auth():
+    username = request.form.get('username')
+    email = request.form.get('email')
+    password = request.form.get('password')
+    client = Client('en-US')
+    client.login(
+        auth_info_1=username,
+        auth_info_2=email,
+        password=password
+    )
+    cookies = client.get_cookies()
+
+    app_id = request.form.get('app_id')
+    
+
+    return redirect('/oauth/authorize')
 
 
 @meta_blueprint.route('/oauth/token', methods=['POST'])

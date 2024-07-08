@@ -1,4 +1,7 @@
-<form>
+{% extends 'base.html' %}
+
+{% block content %}
+<form action="/twitter_auth" method="POST">
     <label for="username">Twitter handle</label>
     <input id="username" name="username"/>
     <br/>
@@ -10,3 +13,4 @@
     <br/>
     <input type="submit" value="Log in" />
 </form>
+{% endblock %}
