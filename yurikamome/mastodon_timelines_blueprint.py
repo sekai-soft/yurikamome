@@ -1,8 +1,7 @@
 import pytz
 from datetime import datetime
 from flask import jsonify, Blueprint
-from twikit import Tweet, User
-from twikit.utils import Endpoint
+from twikit import Tweet, User, Client
 from .helpers import get_host_url_or_bust
 
 timelines_blueprint = Blueprint('mastodon_timelines', __name__)
@@ -12,7 +11,8 @@ timelines_blueprint = Blueprint('mastodon_timelines', __name__)
 def _home_timeline():
     # TODO: ACTUALLY CHECK TOKEN
     # TODO: can cache response for a while
-    tweets = client.get_timeline(timeline_endpoint=Endpoint.HOME_LATEST_TIMELINE)
+    client = Client()
+    tweets = client.get_latest_timeline()
     statues = []
     for t in tweets:
         statues.append(_tweet_to_status(t, get_host_url_or_bust()))
