@@ -4,20 +4,6 @@
 {% if username %}
     <p>Welcome, @{{ username }}</p>
 {% else %}
-<form action="/twitter_auth" method="POST">
-    <label for="username">Twitter handle</label>
-    <input id="username" name="username"/>
-    <br/>
-    <label for="email">Twitter email</label>
-    <input id="email" name="email"/>
-    <br/>
-    <label for="password">Twitter password</label>
-    <input id="password" name="password" type="password"/>
-    <br/>
-    <label for="mfa">MFA</label>
-    <input id="mfa" name="mfa"/>
-    <br/>
-    <input type="submit" value="Log in" />
-</form>
+    <a href="/login">Log in</a>
 {% endif %}
 {% endblock %}

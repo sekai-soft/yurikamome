@@ -18,6 +18,17 @@ def index():
     return render_template('index.html', username=username)
 
 
+@pages_blueprint.route('/login')
+@catches_exceptions
+def login():
+    session_id = request.cookies.get('session_id')
+    if session_id:
+        session_row = query_session(session_id)
+        if session_row:
+            return redirect('/')
+    return render_template('login.html')
+
+
 @pages_blueprint.route('/twitter_auth', methods=['POST'])
 async def twitter_auth():
     username = request.form.get('username')
