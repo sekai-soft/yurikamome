@@ -3,6 +3,7 @@
 {% block content %}
 {% if username %}
     <p>Welcome, @{{ username }}</p>
+    <a href="/logout">Log out</a>
 {% else %}
     <a href="/login">Log in</a>
 {% endif %}

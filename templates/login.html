@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<form action="/twitter_auth" method="POST">
+<form action="/twitter_auth?from={{ from_path }}" method="POST">
     <label for="username">Twitter handle</label>
     <input id="username" name="username"/>
     <br/>

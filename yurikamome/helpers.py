@@ -2,7 +2,7 @@ import os
 import sys
 import sqlite3
 from functools import wraps
-from flask import g, render_template
+from flask import g, render_template, request
 
 
 def env_or_bust(env: str):
@@ -51,8 +51,9 @@ def query_app_by_client_id(client_id: str):
     return query_db('SELECT * FROM apps WHERE client_id = ?', (client_id,), one=True)
 
 
-def update_last_used_at_by_client_id(client_id: str):
+def update_app_session_id(client_id: str, session_id: str):
     db = get_db()
+    db.execute("UPDATE apps SET session_id = ? WHERE client_id = ?", (session_id, client_id))
     db.execute("UPDATE apps SET last_used_at = datetime('now') WHERE client_id = ?", (client_id,))
     db.commit()
 
@@ -67,6 +68,13 @@ def query_session(session_id: str):
     return query_db('SELECT * FROM sessions WHERE session_id = ?', (session_id,), one=True)
 
 
+def delete_session(session_id: str):
+    db = get_db()
+    db.execute('DELETE FROM sessions WHERE session_id = ?', (session_id,))
+    db.commit()
+
+
+# TODO: does not work
 def catches_exceptions(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -78,4 +86,17 @@ def catches_exceptions(f):
             # TODO: sentry
             # capture_exception(e)
             return render_template('error.html', error=str(e))
+    return decorated_function
+
+
+def authenticated(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        g.session_row = None
+        session_id = request.cookies.get('session_id')
+        if session_id:
+            session_row = query_session(session_id)
+            if session_row:
+                g.session_row = session_row
+        return f(*args, **kwargs)
     return decorated_function

@@ -1,10 +1,10 @@
 import secrets
 import time
 import uuid
-from urllib.parse import unquote
-from flask import jsonify, request, render_template, Blueprint, redirect
-from twikit import Client
-from .helpers import env_or_bust, get_host_url_or_bust, update_last_used_at_by_client_id, catches_exceptions, create_app, query_app_by_client_id, create_session
+from urllib.parse import unquote, quote
+from flask import jsonify, request, render_template, Blueprint, g, redirect
+from .helpers import env_or_bust, get_host_url_or_bust, update_app_session_id, \
+    catches_exceptions, create_app, query_app_by_client_id, authenticated
 
 HOST = env_or_bust('HOST')
 HOST_URL = get_host_url_or_bust()
@@ -46,7 +46,7 @@ def instance():
 
 
 @meta_blueprint.route('/api/v1/apps', methods=['POST'])
-def create_app():
+def create_app_route():
     if 'client_name' not in request.json:
         return jsonify({
             'error': 'client_name is required'
@@ -75,7 +75,7 @@ def create_app():
         client_id,
         client_secret,
         vapid_key,
-        scopes
+        scopes,
     ))
 
     return jsonify({
@@ -90,48 +90,47 @@ def create_app():
 
 
 @meta_blueprint.route('/oauth/authorize')
+@authenticated
 @catches_exceptions
 def oauth_authorize():
+    if not g.session_row:
+        return redirect(f'/login?from={quote(request.full_path)}')
+
     if 'response_type' not in request.args or request.args['response_type'] != 'code':
-        return jsonify({
-            'error': "response_type must be 'code'"
-        }), 400
+        return render_template('oauth_authorize.html', erorr="response_type must be 'code'")
 
     if 'client_id' not in request.args:
-        return jsonify({
-            'error': 'client_id is required'
-        }), 400
+        return render_template('oauth_authorize.html', erorr="client_id is required")
     client_id = request.args['client_id']
 
     app_row = query_app_by_client_id(client_id)
     if not app_row:
-        return jsonify({
-            'error': 'client_id is not found'
-        }), 400
+        return render_template('oauth_authorize.html', erorr="client_id is not found")
 
     if 'redirect_uri' not in request.args:
-        return jsonify({
-            'error': 'redirect_uri is required'
-        }), 400
+        return render_template('oauth_authorize.html', erorr="redirect_uri is required")
     redirect_uri = request.args['redirect_uri']
     app_redirect_uris = app_row['redirect_uris']
     if redirect_uri not in app_redirect_uris:
-        return jsonify({
-            'error': 'redirect_uri is not included in the declared list when app is created'
-        }), 400
+        return render_template('oauth_authorize.html', erorr="redirect_uri is not included in the declared list when app is created")
 
     scope_set = set(request.args.get('scope', 'read').split(' '))
     app_scope_set = set(app_row['scopes'].split(' '))
     if not scope_set.issubset(app_scope_set):
-        return jsonify({
-            'error': 'scope is not a subset of the declared set when app is created'
-        }), 400
+        return render_template('oauth_authorize.html', erorr="scope is not a subset of the declared set when app is created")
 
+    # TODO
     force_login = bool(request.args.get('force_login', 'false'))
     lang = request.args.get('lang', 'en')
 
-    update_last_used_at_by_client_id(client_id)
-    return render_template('oauth_authorize.html')
+    update_app_session_id(client_id, g.session_row['session_id'])
+    return render_template(
+        'oauth_authorize.html',
+        username=g.session_row['username'],
+        app_name=app_row['name'],
+        app_website=app_row['website'],
+        app_scopes=app_row['scopes']
+    )
 
 
 @meta_blueprint.route('/oauth/token', methods=['POST'])
