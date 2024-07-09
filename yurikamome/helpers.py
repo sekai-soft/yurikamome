@@ -23,7 +23,7 @@ def get_host_url_or_bust():
 def get_db():
     db = getattr(g, '_database', None)
     if db is None:
-        db = g._database = sqlite3.connect(SQLITE_DB)
+        db = g._database = sqlite3.connect(SQLITE_DB, check_same_thread=False)
     return db
 
 
@@ -61,6 +61,10 @@ def create_session(session_id: str, cookies: str):
     db = get_db()
     db.execute("INSERT INTO sessions (session_id, cookies) VALUES (?, ?)", (session_id, cookies))
     db.commit()
+
+
+def query_session(session_id: str):
+    return query_db('SELECT * FROM sessions WHERE session_id = ?', (session_id,), one=True)
 
 
 def catches_exceptions(f):

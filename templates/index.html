@@ -1,6 +1,9 @@
 {% extends 'base.html' %}
 
 {% block content %}
+{% if twid %}
+    <p>{{ twid }}</p>
+{% else %}
 <form action="/twitter_auth" method="POST">
     <label for="username">Twitter handle</label>
     <input id="username" name="username"/>
@@ -9,8 +12,12 @@
     <input id="email" name="email"/>
     <br/>
     <label for="password">Twitter password</label>
-    <input id="password" name="password"/>
+    <input id="password" name="password" type="password"/>
+    <br/>
+    <label for="mfa">MFA</label>
+    <input id="mfa" name="mfa"/>
     <br/>
     <input type="submit" value="Log in" />
 </form>
+{% endif %}
 {% endblock %}
