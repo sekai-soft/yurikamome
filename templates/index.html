@@ -1,8 +1,8 @@
 {% extends 'base.html' %}
 
 {% block content %}
-{% if twid %}
-    <p>{{ twid }}</p>
+{% if username %}
+    <p>Welcome, @{{ username }}</p>
 {% else %}
 <form action="/twitter_auth" method="POST">
     <label for="username">Twitter handle</label>

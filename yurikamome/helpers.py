@@ -57,9 +57,9 @@ def update_last_used_at_by_client_id(client_id: str):
     db.commit()
 
 
-def create_session(session_id: str, cookies: str):
+def create_session(session_id: str, cookies: str, username: str):
     db = get_db()
-    db.execute("INSERT INTO sessions (session_id, cookies) VALUES (?, ?)", (session_id, cookies))
+    db.execute("INSERT INTO sessions (session_id, cookies, username) VALUES (?, ?, ?)", (session_id, cookies, username))
     db.commit()
 
 

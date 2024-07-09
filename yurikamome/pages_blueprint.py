@@ -10,13 +10,12 @@ pages_blueprint = Blueprint("pages", __name__)
 @pages_blueprint.route('/')
 @catches_exceptions
 def index():
-    twid = None
+    username = None
     session_id = request.cookies.get('session_id')
     if session_id:
         session_row = query_session(session_id)
-        cookies = json.loads(session_row['cookies'])
-        twid = cookies.get('twid')
-    return render_template('index.html', twid=twid)
+        username = session_row['username']
+    return render_template('index.html', username=username)
 
 
 @pages_blueprint.route('/twitter_auth', methods=['POST'])
@@ -36,7 +35,7 @@ async def twitter_auth():
     cookies = client.get_cookies()
     
     session_id = secrets.token_hex(10)
-    create_session(session_id, json.dumps(cookies))
+    create_session(session_id, json.dumps(cookies), username)
 
     resp = make_response(redirect('/'))
     resp.set_cookie('session_id', session_id)

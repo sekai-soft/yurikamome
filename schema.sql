@@ -15,5 +15,6 @@ CREATE TABLE IF NOT EXISTS `apps` (
 CREATE TABLE IF NOT EXISTS `sessions` (
     `session_id` TEXT PRIMARY KEY NOT NULL,
     `cookies` TEXT NOT NULL,
+    `username` TEXT NOT NULL,
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
