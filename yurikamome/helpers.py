@@ -35,10 +35,31 @@ def query_db(query, args=(), one=False):
     cur.close()
     return (rv[0] if rv else None) if one else rv
 
+CREATE_APP_SQL = """
+INSERT INTO apps (id, name, website, redirect_uris, client_id, client_secret, vapid_key, scopes)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+"""
 
-def update_last_used_at(client_id: str):
+
+def create_app(app_info):
+    db = get_db()
+    db.execute(CREATE_APP_SQL, app_info)
+    db.commit()
+
+
+def query_app_by_client_id(client_id: str):
+    return query_db('SELECT * FROM apps WHERE client_id = ?', (client_id,), one=True)
+
+
+def update_last_used_at_by_client_id(client_id: str):
     db = get_db()
     db.execute("UPDATE apps SET last_used_at = datetime('now') WHERE client_id = ?", (client_id,))
+    db.commit()
+
+
+def create_session(session_id: str, cookies: str):
+    db = get_db()
+    db.execute("INSERT INTO sessions (session_id, cookies) VALUES (?, ?)", (session_id, cookies))
     db.commit()
 
 

@@ -5,7 +5,7 @@ from twikit import Tweet, User
 from twikit.utils import Endpoint
 from .helpers import get_host_url_or_bust
 
-timelines_blueprint = Blueprint('timelines', __name__)
+timelines_blueprint = Blueprint('mastodon_timelines', __name__)
 
 
 @timelines_blueprint.route('/api/v1/timelines/home')

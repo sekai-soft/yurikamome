@@ -4,18 +4,13 @@ import uuid
 from urllib.parse import unquote
 from flask import jsonify, request, render_template, Blueprint, redirect
 from twikit import Client
-from .helpers import env_or_bust, get_host_url_or_bust, get_db, update_last_used_at, query_db, catches_exceptions
-
-CREATE_APP_SQL = """
-INSERT INTO apps (id, name, website, redirect_uris, client_id, client_secret, vapid_key, scopes)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-"""
+from .helpers import env_or_bust, get_host_url_or_bust, update_last_used_at_by_client_id, catches_exceptions, create_app, query_app_by_client_id, create_session
 
 HOST = env_or_bust('HOST')
 HOST_URL = get_host_url_or_bust()
 SQLITE_DB = env_or_bust('SQLITE_DB')
 
-meta_blueprint = Blueprint('meta', __name__)
+meta_blueprint = Blueprint('mastodon_meta', __name__)
 
 
 @meta_blueprint.route('/api/v1/instance')
@@ -72,8 +67,7 @@ def create_app():
     client_secret = secrets.token_hex(10)
     vapid_key = secrets.token_hex(10)
 
-    db = get_db()
-    db.execute(CREATE_APP_SQL, (
+    create_app((
         app_id,
         client_name,
         website,
@@ -83,7 +77,6 @@ def create_app():
         vapid_key,
         scopes
     ))
-    db.commit()
 
     return jsonify({
         'id': app_id,
@@ -110,7 +103,7 @@ def oauth_authorize():
         }), 400
     client_id = request.args['client_id']
 
-    app_row = query_db('SELECT * FROM apps WHERE client_id = ?', (client_id,), one=True)
+    app_row = query_app_by_client_id(client_id)
     if not app_row:
         return jsonify({
             'error': 'client_id is not found'
@@ -137,27 +130,8 @@ def oauth_authorize():
     force_login = bool(request.args.get('force_login', 'false'))
     lang = request.args.get('lang', 'en')
 
-    update_last_used_at(client_id)
+    update_last_used_at_by_client_id(client_id)
     return render_template('oauth_authorize.html')
-
-
-@meta_blueprint.route('/twitter_auth', methods=['POST'])
-def twitter_auth():
-    username = request.form.get('username')
-    email = request.form.get('email')
-    password = request.form.get('password')
-    client = Client('en-US')
-    client.login(
-        auth_info_1=username,
-        auth_info_2=email,
-        password=password
-    )
-    cookies = client.get_cookies()
-
-    app_id = request.form.get('app_id')
-    
-
-    return redirect('/oauth/authorize')
 
 
 @meta_blueprint.route('/oauth/token', methods=['POST'])
