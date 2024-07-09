@@ -31,7 +31,7 @@ def instance():
         },
         'thumbnail': None,
         'languages': [],
-        'registrations': True,
+        'registrations': False,
         'approval_required': False,
         'invites_enabled': False,
         'configuration': {
@@ -124,6 +124,9 @@ def oauth_authorize():
     lang = request.args.get('lang', 'en')
 
     update_app_session_id(client_id, g.session_row['session_id'])
+
+    # TODO: handle urn:ietf:wg:oauth:2.0:oob
+
     return render_template(
         'oauth_authorize.html',
         username=g.session_row['username'],
