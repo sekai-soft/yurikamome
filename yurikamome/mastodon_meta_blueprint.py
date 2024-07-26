@@ -2,9 +2,9 @@ import secrets
 import time
 import uuid
 from urllib.parse import unquote, quote
-from flask import jsonify, request, render_template, Blueprint, g, redirect
+from flask import jsonify, request, render_template, Blueprint, g, redirect, make_response
 from .helpers import env_or_bust, get_host_url_or_bust, update_app_session_id, \
-    catches_exceptions, create_app, query_app_by_client_id, authenticated
+    catches_exceptions, create_app, query_app_by_client_id, authenticated, update_app_authorization_code
 
 HOST = env_or_bust('HOST')
 HOST_URL = get_host_url_or_bust()
@@ -119,21 +119,62 @@ def oauth_authorize():
     if not scope_set.issubset(app_scope_set):
         return render_template('oauth_authorize.html', erorr="scope is not a subset of the declared set when app is created")
 
-    # TODO
-    force_login = bool(request.args.get('force_login', 'false'))
-    lang = request.args.get('lang', 'en')
-
-    update_app_session_id(client_id, g.session_row['session_id'])
+    force_login = bool(request.args.get('force_login'))
+    if force_login:
+        resp = make_response(
+            redirect(f'/login?from={quote(request.full_path)}'))
+        resp.delete_cookie('session_id')
+        return resp
 
     # TODO: handle urn:ietf:wg:oauth:2.0:oob
+    update_app_session_id(client_id, g.session_row['session_id'])
 
+    lang = request.args.get('lang', 'en') # TODO: render different language
     return render_template(
         'oauth_authorize.html',
         username=g.session_row['username'],
         app_name=app_row['name'],
         app_website=app_row['website'],
-        app_scopes=app_row['scopes']
+        app_scopes=app_row['scopes'],
+        client_id=client_id,
+        client_secret=app_row['client_secret'],
+        redirect_uri=redirect_uri,
     )
+
+
+@meta_blueprint.route('/oauth/authorize', methods=['POST'])
+@authenticated
+@catches_exceptions
+def oauth_authorize_post():
+    if 'client_id' not in request.form:
+        # TODO: catch exceptions and show toast
+        raise RuntimeError("client_id is required") 
+    client_id = request.form['client_id']
+
+    app_row = query_app_by_client_id(client_id)
+    if not app_row:
+        raise RuntimeError("client_id is not found")
+
+    if 'client_secret' not in request.form:
+        raise RuntimeError("client_secret is required")
+    if request.form['client_secret'] != app_row['client_secret']:
+        raise RuntimeError("client_secret is incorrect")
+
+    if 'redirect_uri' not in request.form:
+        raise RuntimeError("redirect_uri is required")
+    redirect_uri = request.form['redirect_uri']
+    if redirect_uri not in app_row['redirect_uris']:
+        raise RuntimeError("redirect_uri is not included in the declared list when app is created")
+    
+    scope_set = set(request.form.get('scope', 'read').split(' '))
+    app_scope_set = set(app_row['scopes'].split(' '))
+    if not scope_set.issubset(app_scope_set):
+        return render_template('oauth_authorize.html', erorr="scope is not a subset of the declared set when app is created")
+    
+    authorization_code = secrets.token_hex(10)
+    update_app_authorization_code(client_id, authorization_code)
+
+    return redirect(f'{redirect_uri}?code={authorization_code}')
 
 
 @meta_blueprint.route('/oauth/token', methods=['POST'])

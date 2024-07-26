@@ -58,6 +58,13 @@ def update_app_session_id(client_id: str, session_id: str):
     db.commit()
 
 
+def update_app_authorization_code(client_id: str, authorization_code: str):
+    db = get_db()
+    db.execute("UPDATE apps SET authorization_code = ? WHERE client_id = ?", (authorization_code, client_id))
+    db.execute("UPDATE apps SET last_used_at = datetime('now') WHERE client_id = ?", (client_id,))
+    db.commit()
+
+
 def create_session(session_id: str, cookies: str, username: str):
     db = get_db()
     db.execute("INSERT INTO sessions (session_id, cookies, username) VALUES (?, ?, ?)", (session_id, cookies, username))
@@ -94,6 +101,7 @@ def authenticated(f):
     def decorated_function(*args, **kwargs):
         g.session_row = None
         session_id = request.cookies.get('session_id')
+        print(session_id)
         if session_id:
             session_row = query_session(session_id)
             if session_row:

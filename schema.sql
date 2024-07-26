@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS `apps` (
     `vapid_key` TEXT NOT NULL,
     `scopes` TEXT NOT NULL,
     `session_id` TEXT,
+    `authorization_code` TEXT,
     `last_used_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (`session_id`) REFERENCES `sessions`(`session_id`)
