@@ -3,13 +3,13 @@ import secrets
 from urllib.parse import unquote, quote
 from flask import request, Blueprint, render_template, redirect, make_response, g
 from twikit import Client
-from .helpers import create_session, catches_exceptions, authenticated, delete_session, random_secret
+from .helpers import create_session, catches_exceptions, session_authenticated, delete_session, random_secret
 
 pages_blueprint = Blueprint("pages", __name__)
 
 
 @pages_blueprint.route('/')
-@authenticated
+@session_authenticated
 @catches_exceptions
 def index():
     username = None
@@ -19,7 +19,7 @@ def index():
 
 
 @pages_blueprint.route('/login')
-@authenticated
+@session_authenticated
 @catches_exceptions
 def login():
     if g.session_row:
@@ -29,7 +29,7 @@ def login():
 
 
 @pages_blueprint.route('/logout')
-@authenticated
+@session_authenticated
 @catches_exceptions
 def logout():
     if g.session_row:

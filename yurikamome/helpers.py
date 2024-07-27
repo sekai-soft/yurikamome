@@ -2,8 +2,10 @@ import os
 import sys
 import secrets
 import sqlite3
+import json
 from functools import wraps
 from flask import g, render_template, request
+from twikit import Client
 
 
 def env_or_bust(env: str):
@@ -93,6 +95,17 @@ def delete_session(session_id: str):
     db.commit()
 
 
+def query_cookies_by_access_token(access_token: str):
+    app_row = query_db('SELECT session_id FROM apps WHERE access_token = ?', (access_token,), one=True)
+    if not app_row:
+        return None
+    session_id = app_row['session_id']
+    session_row = query_db('SELECT * FROM sessions WHERE session_id = ?', (session_id,), one=True)
+    if not session_row:
+        return None
+    return session_row['cookies']
+
+
 # TODO: does not work
 def catches_exceptions(f):
     @wraps(f)
@@ -108,7 +121,7 @@ def catches_exceptions(f):
     return decorated_function
 
 
-def authenticated(f):
+def session_authenticated(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         g.session_row = None
@@ -118,4 +131,19 @@ def authenticated(f):
             if session_row:
                 g.session_row = session_row
         return f(*args, **kwargs)
+    return decorated_function
+
+
+def async_token_authenticated(f):
+    @wraps(f)
+    async def decorated_function(*args, **kwargs):
+        g.client = None
+        auth_header = request.headers.get('Authorization')
+        if auth_header and auth_header.startswith('Bearer '):
+            access_token = auth_header[len('Bearer '):]
+            cookies = query_cookies_by_access_token(access_token)
+            if cookies:
+                g.client = Client()
+                g.client.set_cookies(json.loads(cookies))
+        return await f(*args, **kwargs)
     return decorated_function

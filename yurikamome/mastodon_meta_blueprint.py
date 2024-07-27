@@ -4,7 +4,7 @@ import uuid
 from urllib.parse import unquote, quote
 from flask import jsonify, request, render_template, Blueprint, g, redirect, make_response
 from .helpers import env_or_bust, get_host_url_or_bust, update_app_session_id, \
-    catches_exceptions, create_app, query_app_by_client_id, authenticated, update_app_authorization_code, random_secret, \
+    catches_exceptions, create_app, query_app_by_client_id, session_authenticated, update_app_authorization_code, random_secret, \
     update_app_access_token
 
 HOST = env_or_bust('HOST')
@@ -91,7 +91,7 @@ def create_app_route():
 
 
 @meta_blueprint.route('/oauth/authorize')
-@authenticated
+@session_authenticated
 @catches_exceptions
 def oauth_authorize():
     if not g.session_row:
@@ -143,8 +143,6 @@ def oauth_authorize():
 
 
 @meta_blueprint.route('/oauth/authorize', methods=['POST'])
-@authenticated
-@catches_exceptions
 def oauth_authorize_post():
     if 'client_id' not in request.form:
         # TODO: catch exceptions and show toast

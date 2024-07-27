@@ -1,18 +1,21 @@
 import pytz
 from datetime import datetime
-from flask import jsonify, Blueprint
-from twikit import Tweet, User, Client
-from .helpers import get_host_url_or_bust
+from flask import jsonify, Blueprint, g
+from twikit import Tweet, User
+from .helpers import get_host_url_or_bust, async_token_authenticated
 
 timelines_blueprint = Blueprint('mastodon_timelines', __name__)
 
 
 @timelines_blueprint.route('/api/v1/timelines/home')
+@async_token_authenticated
 async def home_timeline():
-    # TODO: ACTUALLY CHECK TOKEN
-    # TODO: can cache response for a while
-    client = Client()
-    tweets = await client.get_latest_timeline()
+    if not g.client:
+        return jsonify({
+            'error': 'The access token is invalid'
+        }), 401
+
+    tweets = await g.client.get_latest_timeline()
     statues = []
     for t in tweets:
         statues.append(_tweet_to_status(t, get_host_url_or_bust()))
