@@ -8,11 +8,11 @@ timelines_blueprint = Blueprint('mastodon_timelines', __name__)
 
 
 @timelines_blueprint.route('/api/v1/timelines/home')
-def _home_timeline():
+async def home_timeline():
     # TODO: ACTUALLY CHECK TOKEN
     # TODO: can cache response for a while
     client = Client()
-    tweets = client.get_latest_timeline()
+    tweets = await client.get_latest_timeline()
     statues = []
     for t in tweets:
         statues.append(_tweet_to_status(t, get_host_url_or_bust()))

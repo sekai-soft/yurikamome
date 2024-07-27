@@ -1,5 +1,6 @@
 import os
 import sys
+import secrets
 import sqlite3
 from functools import wraps
 from flask import g, render_template, request
@@ -18,6 +19,10 @@ def get_host_url_or_bust():
     host = env_or_bust('HOST')
     scheme = env_or_bust('SCHEME')
     return f"{scheme}://{host}"
+
+
+def random_secret():
+    return secrets.token_hex(10)
 
 
 def get_db():
@@ -65,6 +70,13 @@ def update_app_authorization_code(client_id: str, authorization_code: str):
     db.commit()
 
 
+def update_app_access_token(client_id: str, access_token: str):
+    db = get_db()
+    db.execute("UPDATE apps SET access_token = ? WHERE client_id = ?", (access_token, client_id))
+    db.execute("UPDATE apps SET last_used_at = datetime('now') WHERE client_id = ?", (client_id,))
+    db.commit()
+
+
 def create_session(session_id: str, cookies: str, username: str):
     db = get_db()
     db.execute("INSERT INTO sessions (session_id, cookies, username) VALUES (?, ?, ?)", (session_id, cookies, username))
@@ -101,7 +113,6 @@ def authenticated(f):
     def decorated_function(*args, **kwargs):
         g.session_row = None
         session_id = request.cookies.get('session_id')
-        print(session_id)
         if session_id:
             session_row = query_session(session_id)
             if session_row:

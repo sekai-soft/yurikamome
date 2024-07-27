@@ -3,7 +3,7 @@ import secrets
 from urllib.parse import unquote, quote
 from flask import request, Blueprint, render_template, redirect, make_response, g
 from twikit import Client
-from .helpers import create_session, catches_exceptions, authenticated, delete_session
+from .helpers import create_session, catches_exceptions, authenticated, delete_session, random_secret
 
 pages_blueprint = Blueprint("pages", __name__)
 
@@ -56,7 +56,7 @@ async def twitter_auth():
     )
     cookies = client.get_cookies()
     
-    session_id = secrets.token_hex(10)
+    session_id = random_secret()
     create_session(session_id, json.dumps(cookies), username)
 
     resp = make_response(redirect(from_path))

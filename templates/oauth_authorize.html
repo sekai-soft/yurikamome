@@ -9,7 +9,6 @@
 <p>{{ app_scopes }}</p>
 <form action="/oauth/authorize" method="post">
     <input name="client_id" id="client_id" value="{{ client_id }}" type="hidden" autocomplete="off">
-    <input name="client_secret" id="client_secret" value="{{ client_secret }}" type="hidden" autocomplete="off">
     <input name="redirect_uri" id="redirect_uri" value="{{ redirect_uri }}" type="hidden" autocomplete="off">
     <input name="scope" id="scope" value="{{ app_scopes }}" type="hidden" autocomplete="off">
     <button name="authorize" type="submit">Authorize</button>
