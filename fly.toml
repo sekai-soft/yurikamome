@@ -10,6 +10,10 @@ force_https = true
 internal_port = 5_000
 min_machines_running = 1
 
+[mounts]
+source = "app_data"
+destination = "/data"
+
 [[vm]]
 cpu_kind = "shared"
 cpus = 1
