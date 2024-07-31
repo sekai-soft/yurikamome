@@ -1,4 +1,4 @@
 flask[async]==3.0.2
 pytz==2024.1
 python-dotenv==1.0.1
-./twikit
+twikit==2.1.0
