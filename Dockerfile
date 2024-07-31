@@ -9,12 +9,11 @@ COPY ./requirements.txt /app/requirements.txt
 # Install any needed packages specified in requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install uwsgi
-RUN apt-get update && apt-get -y install build-essential python3-dev && pip install uwsgi==2.0.23
+# Install gunicorn
+RUN pip install gunicorn==22.0.0
 
 # Add the current directory contents into the container at /app
 COPY . /app
 
-# Run uwsgi.ini when the container launches
-CMD ["bash", "-c", "flask sqlite init && flask run --host=0.0.0.0"]
-# CMD ["bash", "-c", "flask sqlite init && PORT=\"${PORT:=5000}\" && uwsgi --ini uwsgi.ini --http :${PORT}"]
+# Run gunicorn when the container launches
+CMD ["bash", "-c", "flask sqlite init && gunicorn --bind 0.0.0.0:5000 --workers 1 app:app"]
