@@ -92,7 +92,7 @@ def create_app_route():
 
 @meta_blueprint.route('/oauth/authorize')
 @session_authenticated
-@catches_exceptions
+# @catches_exceptions
 def oauth_authorize():
     if not g.session_row:
         return redirect(f'/login?from={quote(request.full_path)}')

@@ -1,8 +1,16 @@
+import os
+import sentry_sdk
 from flask import Flask, g
 from yurikamome.mastodon_meta_blueprint import meta_blueprint
 from yurikamome.mastodon_timelines_blueprint import timelines_blueprint
 from yurikamome.pages_blueprint import pages_blueprint
 from yurikamome.helpers import get_db
+
+
+if os.getenv('SENTRY_DSN'):
+    sentry_sdk.init(
+        dsn=os.getenv('SENTRY_DSN'),
+    )
 
 
 app = Flask(__name__, template_folder='templates', static_folder='static')

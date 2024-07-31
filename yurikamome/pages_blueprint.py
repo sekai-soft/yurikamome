@@ -10,7 +10,7 @@ pages_blueprint = Blueprint("pages", __name__)
 
 @pages_blueprint.route('/')
 @session_authenticated
-@catches_exceptions
+# @catches_exceptions
 def index():
     username = None
     if g.session_row:
@@ -20,7 +20,7 @@ def index():
 
 @pages_blueprint.route('/login')
 @session_authenticated
-@catches_exceptions
+# @catches_exceptions
 def login():
     if g.session_row:
         return redirect('/')
@@ -30,7 +30,7 @@ def login():
 
 @pages_blueprint.route('/logout')
 @session_authenticated
-@catches_exceptions
+# @catches_exceptions
 def logout():
     if g.session_row:
         delete_session(g.session_row['session_id'])

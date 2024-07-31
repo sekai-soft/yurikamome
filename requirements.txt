@@ -2,3 +2,4 @@ flask[async]==3.0.2
 pytz==2024.1
 python-dotenv==1.0.1
 twikit==2.1.0
+sentry-sdk[flask]==1.43.0
