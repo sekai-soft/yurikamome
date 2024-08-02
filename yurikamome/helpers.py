@@ -103,6 +103,9 @@ def query_cookies_by_access_token(access_token: str):
     session_row = query_db('SELECT * FROM sessions WHERE session_id = ?', (session_id,), one=True)
     if not session_row:
         return None
+    db = get_db()
+    db.execute('UPDATE apps SET last_used_at = datetime("now") WHERE session_id = ?', (session_id,))
+    db.commit()
     return session_row['cookies']
 
 
