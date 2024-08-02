@@ -10,11 +10,6 @@ timelines_blueprint = Blueprint('mastodon_timelines', __name__)
 @timelines_blueprint.route('/api/v1/timelines/home')
 @async_token_authenticated
 async def home_timeline():
-    if not g.client:
-        return jsonify({
-            'error': 'The access token is invalid'
-        }), 401
-
     tweets = await g.client.get_latest_timeline()
     statues = []
     for t in tweets:

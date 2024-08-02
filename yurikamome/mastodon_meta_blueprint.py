@@ -1,11 +1,11 @@
-import secrets
 import time
 import uuid
 from urllib.parse import unquote, quote
+from twikit import User
 from flask import jsonify, request, render_template, Blueprint, g, redirect, make_response
 from .helpers import env_or_bust, get_host_url_or_bust, update_app_session_id, \
-    catches_exceptions, create_app, query_app_by_client_id, session_authenticated, update_app_authorization_code, random_secret, \
-    update_app_access_token
+    create_app, query_app_by_client_id, session_authenticated, update_app_authorization_code, random_secret, \
+    update_app_access_token, async_token_authenticated
 
 HOST = env_or_bust('HOST')
 HOST_URL = get_host_url_or_bust()
@@ -242,28 +242,30 @@ def oauth_get_token():
 
 
 @meta_blueprint.route('/api/v1/accounts/verify_credentials')
-def verify_credentials():
-    # TODO
+@async_token_authenticated
+async def verify_credentials():
+    user = await g.client.user()  # type: User
+    username = user.name
     return jsonify({ 
-        'id': '0',
-        'username': '',
-        'acct': '',
-        'url': '',
-        'display_name': '',
-        'note': '',
-        'avatar': '',
-        'avatar_static': '',
-        'header': '',
-        'header_static': '',
-        'locked': False,
+        'id': user.id,
+        'username': username,
+        'acct': username,
+        'url': f'https://twitter.com/{username}',
+        'display_name': user.screen_name,
+        'note': user.description,
+        'avatar': user.profile_image_url,
+        'avatar_static': user.profile_image_url,
+        'header': user.profile_banner_url,
+        'header_static': user.profile_banner_url,
+        'locked': user.protected,
         'fields': [],
         'emojis': [],
         'bot': False,
         'group': False,
         'discoverable': False,
-        'created_at': '2023-02-01T00:00:00.000Z',
-        'last_status_at': '2023-02-01T00:00:00.000Z',
-        'statuses_count': 0,
-        'followers_count': 0,
-        'following_count': 0
+        'created_at': user.created_at_datetime.isoformat(),
+        'last_status_at': None,  # TODO
+        'statuses_count': user.statuses_count,
+        'followers_count': user.followers_count,
+        'following_count': user.following_count
     })

@@ -4,7 +4,7 @@ import secrets
 import sqlite3
 import json
 from functools import wraps
-from flask import g, render_template, request
+from flask import g, render_template, request, jsonify
 from twikit import Client
 
 
@@ -139,11 +139,17 @@ def async_token_authenticated(f):
     async def decorated_function(*args, **kwargs):
         g.client = None
         auth_header = request.headers.get('Authorization')
+        had_auth = False
         if auth_header and auth_header.startswith('Bearer '):
             access_token = auth_header[len('Bearer '):]
             cookies = query_cookies_by_access_token(access_token)
             if cookies:
                 g.client = Client()
                 g.client.set_cookies(json.loads(cookies))
+                had_auth = True
+        if not had_auth:
+            return jsonify({
+                'error': 'The access token is invalid'
+            }), 401
         return await f(*args, **kwargs)
     return decorated_function
