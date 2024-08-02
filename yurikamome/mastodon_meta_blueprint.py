@@ -5,7 +5,7 @@ from twikit import User
 from flask import jsonify, request, render_template, Blueprint, g, redirect, make_response
 from .helpers import env_or_bust, get_host_url_or_bust, update_app_session_id, \
     create_app, query_app_by_client_id, session_authenticated, update_app_authorization_code, random_secret, \
-    update_app_access_token, async_token_authenticated
+    update_app_access_token, async_token_authenticated, json_or_form
 
 HOST = env_or_bust('HOST')
 HOST_URL = get_host_url_or_bust()
@@ -47,21 +47,22 @@ def instance():
 
 
 @meta_blueprint.route('/api/v1/apps', methods=['POST'])
+@json_or_form
 def create_app_route():
-    if 'client_name' not in request.json:
+    if 'client_name' not in g.json_or_form:
         return jsonify({
             'error': 'client_name is required'
         }), 422
-    client_name = unquote(request.json['client_name'])
+    client_name = unquote(g.json_or_form['client_name'])
 
-    if 'redirect_uris' not in request.json:
+    if 'redirect_uris' not in g.json_or_form:
         return jsonify({
             'error': 'redirect_uris is required'
         }), 422
-    redirect_uris = unquote(request.json['redirect_uris'])
+    redirect_uris = unquote(g.json_or_form['redirect_uris'])
 
-    scopes = request.json.get('scopes', 'read')
-    website = request.json.get('website', None)
+    scopes = g.json_or_form.get('scopes', 'read')
+    website = g.json_or_form.get('website', None)
 
     app_id = str(uuid.uuid4())
     client_id = str(uuid.uuid4())
@@ -171,64 +172,73 @@ def oauth_authorize_post():
 
 
 @meta_blueprint.route('/oauth/token', methods=['POST'])
+@json_or_form
 def oauth_get_token():
-    if 'grant_type' not in request.json:
+    if 'grant_type' not in g.json_or_form:
         return jsonify({
             'error': 'grant_type is required'
         }), 422
-    if request.json['grant_type'] != 'authorization_code':
+    grant_type = g.json_or_form['grant_type']
+    if grant_type not in ('authorization_code', 'client_credentials'):
         return jsonify({
-            'error': 'only authorization_code grant_type is supported'
+            'error': 'grant_type must be authorization_code or client_credentials'
         }), 422
     
-    if 'client_id' not in request.json:
+    if 'client_id' not in g.json_or_form:
         return jsonify({
             'error': 'client_id is required'
         }), 422
-    client_id = request.json['client_id']
+    client_id = g.json_or_form['client_id']
     app_row = query_app_by_client_id(client_id)
     if not app_row:
         return jsonify({
             'error': 'client_id is not found'
         }), 422
     
-    if 'code' not in request.json:
-        return jsonify({
-            'error': 'code is required'
-        }), 422
-    if app_row['authorization_code'] != request.json['code']:
-        return jsonify({
-            'error': 'code is invalid'
-        }), 422
+    if grant_type == 'authorization_code':
+        if 'code' not in g.json_or_form:
+            return jsonify({
+                'error': 'code is required'
+            }), 422
+        if app_row['authorization_code'] != g.json_or_form['code']:
+            return jsonify({
+                'error': 'code is invalid'
+            }), 422
 
-    if 'client_secret' not in request.json:
+    if 'client_secret' not in g.json_or_form:
         return jsonify({
             'error': 'client_secret is required'
         }), 422
-    if app_row['client_secret'] != request.json['client_secret']:
+    if app_row['client_secret'] != g.json_or_form['client_secret']:
         return jsonify({
             'error': 'client_secret is invalid'
         }), 422
     
-    if 'redirect_uri' not in request.json:
+    if 'redirect_uri' not in g.json_or_form:
         return jsonify({
             'error': 'redirect_uri is required'
         }), 422
-    if request.json['redirect_uri'] not in app_row['redirect_uris']:
+    if g.json_or_form['redirect_uri'] not in app_row['redirect_uris']:
         return jsonify({
             'error': 'redirect_uri is not included in the declared list when app is created'
         }), 422
 
-    if 'scope' not in request.json:
+    if 'scope' not in g.json_or_form:
         return jsonify({
             'error': 'scope is required'
         }), 422
-    scope_set = set(request.json['scope'].split(' '))
+    scope_set = set(g.json_or_form['scope'].split(' '))
     app_scope_set = set(app_row['scopes'].split(' '))
-    if scope_set != app_scope_set:  # TODO: support non-code where is can be a subset
-        return jsonify({
-            'error': 'scope is not the declared set when app is created'
-        }), 422
+    if grant_type == 'authorization_code':
+        if scope_set != app_scope_set:
+            return jsonify({
+                'error': 'scope is not the declared set when app is created'
+            }), 422
+    else:
+        if not scope_set.issubset(app_scope_set):
+            return jsonify({
+                'error': 'scope is not a subset of the declared set when app is created'
+            }), 422
 
     access_token = random_secret()
     update_app_access_token(client_id, access_token)
@@ -245,13 +255,12 @@ def oauth_get_token():
 @async_token_authenticated
 async def verify_credentials():
     user = await g.client.user()  # type: User
-    username = user.name
     return jsonify({ 
         'id': user.id,
-        'username': username,
-        'acct': username,
-        'url': f'https://twitter.com/{username}',
-        'display_name': user.screen_name,
+        'username': user.screen_name,
+        'acct': user.screen_name,
+        'url': f'https://twitter.com/{user.screen_name}',
+        'display_name': user.name,
         'note': user.description,
         'avatar': user.profile_image_url,
         'avatar_static': user.profile_image_url,

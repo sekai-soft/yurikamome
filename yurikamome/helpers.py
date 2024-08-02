@@ -156,3 +156,15 @@ def async_token_authenticated(f):
             }), 401
         return await f(*args, **kwargs)
     return decorated_function
+
+
+def json_or_form(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        g.json_or_form = None
+        if request.is_json:
+            g.json_or_form = request.json
+        else:
+            g.json_or_form = request.form
+        return f(*args, **kwargs)
+    return decorated_function

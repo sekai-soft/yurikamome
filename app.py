@@ -1,6 +1,7 @@
 import os
 import sentry_sdk
 import werkzeug.exceptions
+import logging
 from sentry_sdk import capture_exception
 from flask import Flask, g
 from dotenv import load_dotenv
@@ -16,6 +17,13 @@ if os.getenv('SENTRY_DSN'):
         dsn=os.getenv('SENTRY_DSN')
     )
 
+
+class No404(logging.Filter):
+    def filter(self, record):
+        return '404 -' not in record.getMessage()
+
+logging.getLogger("werkzeug").addFilter(No404())
+
 app = Flask(__name__, template_folder='templates', static_folder='static')
 app.register_blueprint(pages_blueprint, url_prefix='/')
 app.register_blueprint(meta_blueprint, url_prefix='/')
@@ -26,6 +34,12 @@ app.register_blueprint(timelines_blueprint, url_prefix='/')
 def handle_bad_request(e):
     capture_exception(e)
     return 'bad request!', 400
+
+
+@app.errorhandler(werkzeug.exceptions.UnsupportedMediaType)
+def handle_unsupported_media_type(e):
+    capture_exception(e)
+    return 'unsupported media type!', 415
 
 
 @app.teardown_appcontext
